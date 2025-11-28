@@ -5,7 +5,7 @@ import plotly.graph_objects as go
 import numpy as np
 import base64
 import os
-from thefuzz import process # Import for Fuzzy Search
+from thefuzz import process 
 
 # -----------------------------------------------------------------------------
 # [HELPER FUNCTION] Convert Local Image to Base64 for HTML
@@ -51,8 +51,7 @@ st.markdown("""
             box-shadow: 0 2px 10px rgba(0,0,0,0.02);
         }
         .welcome-banner h1 { color: #1565C0; font-size: 26px; font-weight: 700; margin: 0; }
-        .welcome-banner p { color: #546E7A; margin: 5px 0 0 0; }
-
+        
         div[data-testid="metric-container"] {
             background-color: white; border: 1px solid #E0E0E0; padding: 20px; border-radius: 12px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.02); transition: all 0.3s ease;
@@ -66,24 +65,16 @@ st.markdown("""
         .user-row {
             display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #F1F3F4;
         }
-        .user-row:last-child { border-bottom: none; }
         .user-avatar {
             width: 40px; height: 40px; border-radius: 50%; background: #E3F2FD; color: #1565C0;
             display: flex; align-items: center; justify-content: center; font-weight: 700; margin-right: 15px;
         }
-        .user-details { flex-grow: 1; }
-        .user-name { font-weight: 600; color: #37474F; font-size: 0.95rem; }
-        .user-dept { color: #90A4AE; font-size: 0.8rem; }
         .user-stat { font-weight: 700; color: #1565C0; }
         
         .podium-card { padding: 15px; border-radius: 12px; text-align: center; margin-bottom: 10px; }
         .podium-gold { border: 2px solid #FFD700; background: #FFFAF0; }
         .podium-silver { border: 2px solid #C0C0C0; background: #FAFAFA; }
         .podium-bronze { border: 2px solid #CD7F32; background: #FFF8F0; }
-
-        .stTabs [data-baseweb="tab-list"] { gap: 10px; background-color: transparent; }
-        .stTabs [data-baseweb="tab"] { height: 45px; border-radius: 8px; border: 1px solid transparent; background-color: #FFFFFF; }
-        .stTabs [data-baseweb="tab"][aria-selected="true"] { background-color: #1565C0; color: white; border: none; }
 
         .photo-container {
             text-align: center; margin-top: 20px; padding-top: 20px; border-top: 1px solid #F0F2F5;
@@ -93,8 +84,6 @@ st.markdown("""
             margin-bottom: 10px; border: 3px solid #E3F2FD;
             box-shadow: 0 4px 6px rgba(0,0,0,0.1);
         }
-        .photo-name { font-weight: 600; color: #37474F; font-size: 1rem; }
-        .photo-role { color: #90A4AE; font-size: 0.85rem; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -104,11 +93,8 @@ st.markdown("""
 def generate_dummy_data():
     departments = ['CSE', 'ECE', 'ME', 'Civil', 'Physics', 'Chem', 'Textile', 'IPE', 'ICE']
     names = [f"Dr. Faculty {i}" for i in range(1, 151)]
-    # Adding Banalaxmi manually to dummy data for testing if no CSV
     names.append("Dr. Banalaxmi Brahma") 
     
-    countries = ['India']
-    weights = [0.6, 0.1, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05]
     data = []
     for name in names:
         dept = np.random.choice(departments)
@@ -116,14 +102,16 @@ def generate_dummy_data():
         cites = int(pubs * np.random.uniform(5, 60)) 
         h_index = int(np.sqrt(cites) * np.random.uniform(0.8, 1.2))
         i10 = int(h_index * 1.5)
-        country = np.random.choice(countries, p=weights)
+        # [SIMULATION] Generating random Co-author counts (Integer data)
+        coauth = np.random.randint(1, 25) 
+        
         data.append({
             "name": name, "department": dept,
             "designation": np.random.choice(["Professor", "Associate Prof.", "Assistant Prof."]),
             "total_publications": pubs, "citations_box": cites,
             "h_index": h_index, "I10_Index": i10,
             "Research_Area": f"Specialization {np.random.randint(1, 10)}",
-            "Country": country
+            "coauthor_count": coauth 
         })
     return pd.DataFrame(data)
 
@@ -134,10 +122,6 @@ def load_csv(file):
 # -----------------------------------------------------------------------------
 # [SIDEBAR & DATA MAPPING]
 # -----------------------------------------------------------------------------
-# -----------------------------------------------------------------------------
-# [DATA LOADING] Auto-load Default CSV + Optional Upload
-# -----------------------------------------------------------------------------
-
 st.sidebar.title("⚙️ Configuration")
 uploaded_file = st.sidebar.file_uploader("Upload Faculty Data (CSV)", type=["csv"])
 df_final = None
@@ -159,18 +143,22 @@ if uploaded_file is not None:
     c_cite = st.sidebar.selectbox("Citations", cols, index=get_idx(cols, "citations_box"))
     c_h = st.sidebar.selectbox("H-Index", cols, index=get_idx(cols, "h_index"))
     
+    # [NEW MAPPING] Logic to find "coauthor" or "collab" in your CSV headers
+    c_coauth = st.sidebar.selectbox("Co-Author Count", cols, index=get_idx(cols, "coauthor"))
+    
     try:
         df_final = raw_df.rename(columns={
             c_name: 'Name', c_dept: 'Department', c_desig: 'Designation',
-            c_pubs: 'Total_Publications', c_cite: 'Total_Citations', c_h: 'H_Index'
+            c_pubs: 'Total_Publications', c_cite: 'Total_Citations', c_h: 'H_Index',
+            c_coauth: 'Coauthor_Count' # Renaming input column to internal variable
         })
-        for col in ['Total_Publications', 'Total_Citations', 'H_Index']:
+        
+        # [DATA CLEANING] Converting Coauthor count to numeric
+        for col in ['Total_Publications', 'Total_Citations', 'H_Index', 'Coauthor_Count']:
             df_final[col] = pd.to_numeric(df_final[col], errors='coerce').fillna(0)
             
         if 'I10_Index' not in df_final.columns: df_final['I10_Index'] = df_final['H_Index']
         if 'Research_Area' not in df_final.columns: df_final['Research_Area'] = "General Engineering"
-        if 'Country' not in df_final.columns:
-            df_final['Country'] = np.random.choice(['India'], size=len(df_final))
         
     except Exception as e:
         st.error(f"Error mapping columns: {e}")
@@ -180,7 +168,8 @@ else:
         df_final = generate_dummy_data()
         df_final = df_final.rename(columns={'name':'Name', 'department':'Department', 
                                           'designation':'Designation', 'total_publications':'Total_Publications',
-                                          'citations_box':'Total_Citations', 'h_index':'H_Index'})
+                                          'citations_box':'Total_Citations', 'h_index':'H_Index',
+                                          'coauthor_count': 'Coauthor_Count'})
 
 # -----------------------------------------------------------------------------
 # [MAIN DASHBOARD]
@@ -193,7 +182,7 @@ if df_final is not None:
     st.markdown("""
         <div class="welcome-banner">
             <h1>🏛️ NIT Jalandhar | Research Dashboard</h1>
-            <p>Analytics Portal: Track performance, citations, and global collaborations.</p>
+            <p>Analytics Portal: Track performance, citations, and co-authorship networks.</p>
         </div>
     """, unsafe_allow_html=True)
 
@@ -265,6 +254,7 @@ if df_final is not None:
         r1_c1, r1_c2 = st.columns(2)
         with r1_c1:
             st.markdown('<div class="dashboard-card">', unsafe_allow_html=True)
+            # [AGGREGATION] GroupBy Department
             dept_grp = filtered_df.groupby('Department')['Total_Publications'].mean().reset_index().sort_values('Total_Publications')
             fig_bar = px.bar(dept_grp, x='Total_Publications', y='Department', orientation='h',
                              title="Avg Pubs per Dept", color='Total_Publications', color_continuous_scale='Blues')
@@ -273,25 +263,26 @@ if df_final is not None:
             st.markdown('</div>', unsafe_allow_html=True)
         with r1_c2:
             st.markdown('<div class="dashboard-card">', unsafe_allow_html=True)
+            # [STATISTICS] Box Plot for Distribution
             fig_box = px.box(filtered_df, x='Department', y='H_Index', color='Department',
                              title="H-Index Distribution", points="outliers")
             fig_box.update_layout(showlegend=False, plot_bgcolor='white', xaxis_title=None)
             st.plotly_chart(fig_box, use_container_width=True)
             st.markdown('</div>', unsafe_allow_html=True)
+
+        # [UPDATED VISUALIZATION] Replaced Map with Co-author Analysis
         st.markdown('<div class="dashboard-card">', unsafe_allow_html=True)
-        fig_scatter = px.scatter(filtered_df, x='Total_Publications', y='Total_Citations',
+        st.subheader("🤝 Co-authorship & Impact Analysis")
+        
+        # [CORRELATION] Scatter Plot: Do more co-authors = more citations?
+        # Using a scatter plot to visualize the linear relationship between team size and impact.
+        fig_scatter_co = px.scatter(filtered_df, x='Coauthor_Count', y='Total_Citations',
                                  size='H_Index', color='Department', hover_name='Name',
-                                 log_x=True, log_y=True, title="Quantity vs Quality (Log Scale)", template="plotly_white")
-        st.plotly_chart(fig_scatter, use_container_width=True)
-        st.markdown('</div>', unsafe_allow_html=True)
-        st.markdown('<div class="dashboard-card">', unsafe_allow_html=True)
-        st.subheader("🌍 Global Research Collaborations")
-        map_data = filtered_df.groupby('Country').size().reset_index(name='Collaborations')
-        fig_map = px.choropleth(map_data, locations="Country", locationmode='country names',
-                                color="Collaborations", hover_name="Country", color_continuous_scale="Blues")
-        fig_map.update_geos(showframe=False, showcoastlines=False, projection_type='natural earth')
-        fig_map.update_layout(height=450, margin={"r":0,"t":0,"l":0,"b":0})
-        st.plotly_chart(fig_map, use_container_width=True)
+                                 log_y=True, 
+                                 title="Impact of Collaboration: Co-authors vs Citations (Bubble Size = H-Index)", 
+                                 template="plotly_white",
+                                 labels={'Coauthor_Count': 'Number of Co-authors', 'Total_Citations': 'Total Citations (Log)'})
+        st.plotly_chart(fig_scatter_co, use_container_width=True)
         st.markdown('</div>', unsafe_allow_html=True)
 
     # --- TAB 4: FACULTY PROFILE ---
@@ -313,18 +304,11 @@ if df_final is not None:
             # --- FUZZY SEARCH LOGIC ---
             all_names = filtered_df['Name'].tolist()
             txt = st.text_input("Search Name")
-            
-            # Default to all options
             match_options = all_names
             
             if txt:
-                # Find the top 3 closest matches using fuzzy search
                 matches = process.extract(txt, all_names, limit=3)
-                # Matches format: [('Name1', score1), ('Name2', score2), ...]
-                # We filter to keep matches with a score > 50 (to avoid garbage matches)
                 match_options = [m[0] for m in matches if m[1] > 50]
-                
-                # If no good matches found, show nothing or all
                 if not match_options:
                     st.warning("No close matches found. Try again.")
                     match_options = []
@@ -354,7 +338,9 @@ if df_final is not None:
                 m1, m2, m3 = st.columns(3)
                 m1.metric("Total Citations", int(prof['Total_Citations']))
                 m2.metric("H-Index", int(prof['H_Index']))
-                m3.metric("Collaborations", prof['Country'])
+                # [METRIC UPDATE] Showing Co-author count instead of Country
+                m3.metric("Co-authors", int(prof['Coauthor_Count']))
+                
                 years = np.arange(2015, 2026)
                 growth = np.cumsum(np.random.randint(1, int(prof['Total_Citations']/8)+2, size=11))
                 growth = (growth / growth.max()) * prof['Total_Citations']
