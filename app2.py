@@ -107,7 +107,7 @@ def generate_dummy_data():
     # Adding Banalaxmi manually to dummy data for testing if no CSV
     names.append("Dr. Banalaxmi Brahma") 
     
-    countries = ['India', 'USA', 'UK', 'Canada', 'Germany', 'Australia', 'Japan', 'France']
+    countries = ['India']
     weights = [0.6, 0.1, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05]
     data = []
     for name in names:
