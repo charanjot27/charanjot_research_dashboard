@@ -138,78 +138,50 @@ def load_csv(file):
 # [DATA LOADING] Auto-load Default CSV + Optional Upload
 # -----------------------------------------------------------------------------
 
-DEFAULT_CSV = "final data nitj.csv"   # <-- your CSV file
-
-@st.cache_data
-def load_default_csv():
-    try:
-        return pd.read_csv(DEFAULT_CSV)
-    except:
-        return None
-
-default_df = load_default_csv()
-
 st.sidebar.title("⚙️ Configuration")
 uploaded_file = st.sidebar.file_uploader("Upload Faculty Data (CSV)", type=["csv"])
-
 df_final = None
 
-# ---- CASE 1: USER UPLOADS A CSV ----
 if uploaded_file is not None:
-    raw_df = pd.read_csv(uploaded_file)
-    source = "Uploaded CSV"
+    raw_df = load_csv(uploaded_file)
+    st.sidebar.success("File uploaded!")
+    cols = raw_df.columns.tolist()
+    
+    def get_idx(options, search):
+        for i, opt in enumerate(options):
+            if search.lower() in opt.lower(): return i
+        return 0
 
-# ---- CASE 2: LOAD DEFAULT CSV AUTOMATICALLY ----
-elif default_df is not None:
-    raw_df = default_df
-    st.sidebar.success("Loaded default NITJ dataset automatically 🎉")
-    source = "Default CSV"
+    c_name = st.sidebar.selectbox("Name", cols, index=get_idx(cols, "name"))
+    c_dept = st.sidebar.selectbox("Department", cols, index=get_idx(cols, "department"))
+    c_desig = st.sidebar.selectbox("Designation", cols, index=get_idx(cols, "designation"))
+    c_pubs = st.sidebar.selectbox("Publications", cols, index=get_idx(cols, "total_publications"))
+    c_cite = st.sidebar.selectbox("Citations", cols, index=get_idx(cols, "citations_box"))
+    c_h = st.sidebar.selectbox("H-Index", cols, index=get_idx(cols, "h_index"))
+    
+    try:
+        df_final = raw_df.rename(columns={
+            c_name: 'Name', c_dept: 'Department', c_desig: 'Designation',
+            c_pubs: 'Total_Publications', c_cite: 'Total_Citations', c_h: 'H_Index'
+        })
+        for col in ['Total_Publications', 'Total_Citations', 'H_Index']:
+            df_final[col] = pd.to_numeric(df_final[col], errors='coerce').fillna(0)
+            
+        if 'I10_Index' not in df_final.columns: df_final['I10_Index'] = df_final['H_Index']
+        if 'Research_Area' not in df_final.columns: df_final['Research_Area'] = "General Engineering"
+        if 'Country' not in df_final.columns:
+            df_final['Country'] = np.random.choice(['India', 'USA', 'UK'], size=len(df_final))
+        
+    except Exception as e:
+        st.error(f"Error mapping columns: {e}")
 
-# ---- CASE 3: FALLBACK TO DEMO DATA ----
 else:
-    st.sidebar.warning("Default CSV missing — using demo dataset.")
-    raw_df = generate_dummy_data()
-    source = "Demo Data"
+    if st.sidebar.button("Load Demo Data"):
+        df_final = generate_dummy_data()
+        df_final = df_final.rename(columns={'name':'Name', 'department':'Department', 
+                                          'designation':'Designation', 'total_publications':'Total_Publications',
+                                          'citations_box':'Total_Citations', 'h_index':'H_Index'})
 
-# ---- COLUMN AUTO-MAPPING LOGIC (unchanged) ----
-cols = raw_df.columns.tolist()
-
-def get_idx(options, search):
-    for i, opt in enumerate(options):
-        if search.lower() in opt.lower():
-            return i
-    return 0
-
-c_name = st.sidebar.selectbox("Name", cols, index=get_idx(cols, "name"))
-c_dept = st.sidebar.selectbox("Department", cols, index=get_idx(cols, "department"))
-c_desig = st.sidebar.selectbox("Designation", cols, index=get_idx(cols, "designation"))
-c_pubs = st.sidebar.selectbox("Publications", cols, index=get_idx(cols, "total_publications"))
-c_cite = st.sidebar.selectbox("Citations", cols, index=get_idx(cols, "citations"))
-c_h = st.sidebar.selectbox("H-Index", cols, index=get_idx(cols, "h_index"))
-
-# ---- CLEAN + STANDARDIZE COLUMNS ----
-df_final = raw_df.rename(columns={
-    c_name: 'Name',
-    c_dept: 'Department',
-    c_desig: 'Designation',
-    c_pubs: 'Total_Publications',
-    c_cite: 'Total_Citations',
-    c_h: 'H_Index'
-})
-
-for col in ['Total_Publications', 'Total_Citations', 'H_Index']:
-    df_final[col] = pd.to_numeric(df_final[col], errors='coerce').fillna(0)
-
-if 'I10_Index' not in df_final.columns:
-    df_final['I10_Index'] = df_final['H_Index']
-
-if 'Research_Area' not in df_final.columns:
-    df_final['Research_Area'] = "General Engineering"
-
-if 'Country' not in df_final.columns:
-    df_final['Country'] = np.random.choice(['India', 'USA', 'UK'], size=len(df_final))
-
-st.sidebar.info(f"📄 Data Source: **{source}**")
 # -----------------------------------------------------------------------------
 # [MAIN DASHBOARD]
 # -----------------------------------------------------------------------------
