@@ -170,7 +170,7 @@ if uploaded_file is not None:
         if 'I10_Index' not in df_final.columns: df_final['I10_Index'] = df_final['H_Index']
         if 'Research_Area' not in df_final.columns: df_final['Research_Area'] = "General Engineering"
         if 'Country' not in df_final.columns:
-            df_final['Country'] = np.random.choice(['India', 'USA', 'UK'], size=len(df_final))
+            df_final['Country'] = np.random.choice(['India'], size=len(df_final))
         
     except Exception as e:
         st.error(f"Error mapping columns: {e}")
